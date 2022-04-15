@@ -32,9 +32,54 @@ contract Wallet is Owner {
         uint256 amount;
     }
 
-    function withdraw(uint256 _amount, address _to) public {}
+    function withdraw(uint256 _amount, address _to) public {
+        Balance storage userBalance = balance[msg.sender];
+        require(userBalance.balance > 0, "Cant Withdraw");
+        require(
+            ((userBalance.balance <= userBalance.allowedWithdraw) ||
+                msg.sender == owner),
+            "Cant Withdraw - Overlap allowed"
+        );
 
-    function createOrder(uint256 _amount) public {}
+        uint256 transactionId = userBalance.numTransactions + 1;
+
+        Transaction memory newTransaction = Transaction({
+            timestamp: block.timestamp,
+            amount: _amount,
+            to: _to
+        });
+
+        if (msg.sender != owner) {
+            userBalance.allowedWithdraw -= _amount;
+        }
+
+        userBalance.balance -= _amount;
+        userBalance.transaction[transactionId] = newTransaction;
+        userBalance.numTransactions = transactionId;
+
+        payable(_to).transfer(_amount);
+    }
+
+    function createOrder(uint256 _amount) public {
+        Balance storage userBalance = balance[msg.sender];
+        uint256 orderId = userBalance.numOrders + 1;
+
+        require(msg.sender != owner, "Only users");
+        require(
+            userBalance.balance >= _amount,
+            "Cant withdraw more than the balance"
+        );
+
+        Order memory newOrder = Order({
+            approved: false,
+            rejected: false,
+            blocked: false,
+            amount: _amount
+        });
+
+        userBalance.numOrders = orderId;
+        userBalance.order[orderId] = newOrder;
+    }
 
     function deposit(uint256 _amount) public payable {}
 
@@ -47,7 +92,8 @@ contract Wallet is Owner {
             to: msg.sender
         });
 
-        balance[msg.sender].balance = msg.value;
+        balance[msg.sender].balance += msg.value;
+        balance[msg.sender].numTransactions = transactionId;
         balance[msg.sender].transaction[transactionId] = newTransaction;
     }
 
@@ -85,5 +131,12 @@ contract Wallet is Owner {
         Transaction memory transactionId = callerBalance.transaction[_id];
 
         return (transactionId.amount, transactionId.to);
+    }
+
+    function getOrders(uint256 _id) public view returns (uint256) {
+        Balance storage callerBalance = balance[msg.sender];
+        Order memory orderId = callerBalance.order[_id];
+
+        return orderId.amount;
     }
 }
