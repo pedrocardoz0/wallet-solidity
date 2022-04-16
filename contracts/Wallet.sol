@@ -81,7 +81,10 @@ contract Wallet is Owner {
         userBalance.order[orderId] = newOrder;
     }
 
-    function deposit(uint256 _amount) public payable {}
+    function deposit(address _to) public payable {
+        Balance storage userBalance = balance[_to];
+        userBalance.balance += msg.value;
+    }
 
     receive() external payable {
         uint256 transactionId = balance[msg.sender].numTransactions + 1;
@@ -101,7 +104,15 @@ contract Wallet is Owner {
         uint256 _amount,
         address _from,
         address _to
-    ) public OnlyOnwer {}
+    ) public OnlyOnwer {
+        Balance storage userFromBalance = balance[_from];
+        Balance storage userToBalance = balance[_to];
+
+        require(userFromBalance.balance >= _amount, "Cant withdraw");
+
+        userFromBalance.balance -= _amount;
+        userToBalance.balance += _amount;
+    }
 
     function approveOrder(uint256 _order, address payable _from)
         public
