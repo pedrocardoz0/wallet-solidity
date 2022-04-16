@@ -36,8 +36,7 @@ contract Wallet is Owner {
         Balance storage userBalance = balance[msg.sender];
         require(userBalance.balance > 0, "Cant Withdraw");
         require(
-            ((userBalance.balance <= userBalance.allowedWithdraw) ||
-                msg.sender == owner),
+            ((_amount <= userBalance.allowedWithdraw) || msg.sender == owner),
             "Cant Withdraw - Overlap allowed"
         );
 
@@ -114,17 +113,38 @@ contract Wallet is Owner {
         userToBalance.balance += _amount;
     }
 
-    function approveOrder(uint256 _order, address payable _from)
-        public
-        OnlyOnwer
-    {}
+    function approveOrder(uint256 _order, address _from) public OnlyOnwer {
+        Balance storage userBalance = balance[_from];
 
-    function rejectOrder(uint256 _order, address payable _from)
-        public
-        OnlyOnwer
-    {}
+        Order memory orderUser = userBalance.order[_order];
+        userBalance.allowedWithdraw += orderUser.amount;
+        orderUser.approved = true;
+    }
 
-    function openOrdersFromUser(address _from) public OnlyOnwer {}
+    function rejectOrder(uint256 _order, address _from) public OnlyOnwer {
+        Balance storage userBalance = balance[_from];
+
+        Order memory orderUser = userBalance.order[_order];
+        orderUser.rejected = true;
+    }
+
+    function openOrdersFromUser(address _from)
+        public
+        view
+        OnlyOnwer
+        returns (Order[] memory)
+    {
+        Balance storage userBalance = balance[_from];
+        mapping(uint256 => Order) storage orderUser = userBalance.order;
+
+        Order[] memory orders = new Order[](userBalance.numOrders);
+
+        for (uint256 i = 0; i < userBalance.numOrders; i++) {
+            orders[i] = orderUser[i];
+        }
+
+        return (orders);
+    }
 
     /*
         Debug.
